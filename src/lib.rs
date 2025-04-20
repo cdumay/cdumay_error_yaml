@@ -10,7 +10,7 @@
 //! `serde_yaml::Error` values into application-friendly typed errors with
 //! metadata support via `cdumay_error`.
 
-use cdumay_error::{AsError, Error, define_errors, define_kinds};
+use cdumay_error::{AsError, Error, ErrorConverter, define_errors, define_kinds};
 use std::collections::BTreeMap;
 
 /// Define custom error kinds related to YAML operations.
@@ -27,7 +27,8 @@ define_errors! {
 /// into typed application errors.
 pub struct YamlError;
 
-impl YamlError {
+impl ErrorConverter for YamlError {
+    type Error = serde_yaml::Error;
     /// Converts a `serde_yaml::Error` into a structured application `Error`.
     ///
     /// # Parameters
@@ -37,24 +38,16 @@ impl YamlError {
     ///
     /// # Returns
     /// A typed `Error` with metadata and details included.
-    pub fn yaml_error(err: &serde_yaml::Error, text: Option<String>, context: BTreeMap<String, serde_value::Value>) -> Error {
-        match text {
-            Some(data) => DataError::new().set_message(data).set_details({
-                let mut ctx = context.clone();
-                ctx.insert("origin".to_string(), serde_value::Value::String(err.to_string()));
-                ctx
-            }),
-            None => DataError::new().set_message(err.to_string()).set_details(context),
-        }
-        .into()
+    fn convert(err: &serde_yaml::Error, text: String, context: BTreeMap<String, serde_value::Value>) -> Error {
+        DataError::new().set_message(text).set_details(context).into()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
     use serde_value::Value;
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_invalid_yaml_returns_custom_error_with_message() {
@@ -66,7 +59,7 @@ mod tests {
         let mut context = BTreeMap::new();
         context.insert("file".to_string(), Value::String("config.yaml".to_string()));
 
-        let custom_error = YamlError::yaml_error(&err, Some("Custom YAML parsing failed".to_string()), context.clone());
+        let custom_error = YamlError::convert_error(&err, Some("Custom YAML parsing failed".to_string()), context.clone());
 
         assert_eq!(custom_error.kind.message_id(), "YAML-00001");
         assert_eq!(custom_error.message, "Custom YAML parsing failed");
@@ -85,7 +78,7 @@ mod tests {
         let err = result.unwrap_err();
         let context = BTreeMap::new();
 
-        let custom_error = YamlError::yaml_error(&err, None, context.clone());
+        let custom_error = YamlError::convert_error(&err, None, context.clone());
 
         assert_eq!(custom_error.kind.message_id(), "YAML-00001");
         assert_eq!(custom_error.message, err.to_string());
