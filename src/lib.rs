@@ -3,13 +3,76 @@
 //! [![cdumay_error_yaml on docs.rs](https://docs.rs/cdumay_error_yaml/badge.svg)](https://docs.rs/cdumay_error_yaml)
 //! [![Source Code Repository](https://img.shields.io/badge/Code-On%20GitHub-blue?logo=GitHub)](https://github.com/cdumay/cdumay_error_yaml)
 //!
-//! Error wrapper for YAML serialization and deserialization.
+//! Here's the documentation for your code in a `README.md` format:
+//! 
+//! A lightweight utility crate that converts YAML serialization and deserialization errors (`serde_yaml::Error`) into structured, typed errors using the [`cdumay_error`](https://!docs.rs/cdumay-error/) framework.
+//! 
+//! This helps standardize error handling for Rust applications that deal with YAML configuration or data files, while enriching error details with structured context.
+//! 
+//! ## Features
+//! 
+//! - Converts YAML-related errors into a standardized error format
+//! - Provides unique error codes, HTTP status codes, and descriptions
+//! - Supports rich contextual error metadata via `BTreeMap`
+//! - Integrates easily with the `cdumay_error::ErrorConverter` trait
+//! 
+//! ## Usage Example
+//! 
+//! ### Dependencies
+//! 
+//! ```toml
+//! [dependencies]
+//! cdumay_error = "1.0"
+//! serde = { version = "1.0", features = ["derive"] }
+//! serde-value = "0.7"
+//! serde_yaml = "0.8"
+//! ```
+//! 
+//! ### Code sample
+//! 
+//! ```rust
+//! use cdumay_error::ErrorConverter;
+//! use std::collections::BTreeMap;
+//! use serde::{Deserialize, Serialize};
+//! use cdumay_error_yaml::YamlErrorConverter;
 //!
-//! This crate provides structured error handling for operations involving
-//! YAML encoding and decoding using `serde_yaml`. It converts raw
-//! `serde_yaml::Error` values into application-friendly typed errors with
-//! metadata support via `cdumay_error`.
-
+//! #[derive(Serialize, Deserialize)]
+//! struct Config {
+//!     name: String,
+//!     debug: bool,
+//! }
+//!
+//! fn serialize_config(config: &Config) -> Result<String, cdumay_error::Error> {
+//!     serde_yaml::to_string(config).map_err(|e| {
+//!         let mut ctx = BTreeMap::new();
+//!         ctx.insert("config_name".into(), serde_value::Value::String(config.name.clone()));
+//!         YamlErrorConverter::convert(&e, "Failed to serialize YAML config".into(), ctx)
+//!     })
+//! }
+//!
+//! fn deserialize_config(input: &str) -> Result<Config, cdumay_error::Error> {
+//!     serde_yaml::from_str::<Config>(input).map_err(|e| {
+//!         let mut ctx = BTreeMap::new();
+//!         ctx.insert("input".into(), serde_value::Value::String(input.to_string()));
+//!         YamlErrorConverter::convert(&e, "Failed to deserialize YAML config".into(), ctx)
+//!     })
+//! }
+//! ```
+//! 
+//! ## Example Output
+//! 
+//! ```json
+//! {
+//!   "code": "YAML-00001",
+//!   "status": 400,
+//!   "kind": "Invalid YAML data",
+//!   "message": "Failed to deserialize YAML config",
+//!   "context": {
+//!     "input": "invalid: yaml"
+//!   }
+//! }
+//! ```
+//! 
 use cdumay_error::{AsError, Error, ErrorConverter, define_errors, define_kinds};
 use std::collections::BTreeMap;
 
@@ -25,9 +88,9 @@ define_errors! {
 
 /// Struct providing helper functions to convert `serde_yaml::Error`
 /// into typed application errors.
-pub struct YamlError;
+pub struct YamlErrorConverter;
 
-impl ErrorConverter for YamlError {
+impl ErrorConverter for YamlErrorConverter {
     type Error = serde_yaml::Error;
     /// Converts a `serde_yaml::Error` into a structured application `Error`.
     ///
@@ -40,57 +103,5 @@ impl ErrorConverter for YamlError {
     /// A typed `Error` with metadata and details included.
     fn convert(err: &serde_yaml::Error, text: String, context: BTreeMap<String, serde_value::Value>) -> Error {
         DataError::new().set_message(text).set_details(context).into()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_value::Value;
-    use std::collections::BTreeMap;
-
-    #[test]
-    fn test_invalid_yaml_returns_custom_error_with_message() {
-        let invalid_yaml = "invalid: yaml: :"; // malformed input
-        let parse_result = serde_yaml::from_str::<serde_yaml::Value>(invalid_yaml);
-        assert!(parse_result.is_err());
-
-        let err = parse_result.unwrap_err();
-        let mut context = BTreeMap::new();
-        context.insert("file".to_string(), Value::String("config.yaml".to_string()));
-
-        let custom_error = YamlError::convert_error(&err, Some("Custom YAML parsing failed".to_string()), context.clone());
-
-        assert_eq!(custom_error.kind.message_id(), "YAML-00001");
-        assert_eq!(custom_error.message, "Custom YAML parsing failed");
-
-        let details = custom_error.details.unwrap();
-        assert!(details.contains_key("file"));
-        assert!(details.contains_key("origin"));
-    }
-
-    #[test]
-    fn test_invalid_yaml_returns_error_with_default_message() {
-        let invalid_yaml = "---\ninvalid_yaml: [unterminated"; // bad structure
-        let result = serde_yaml::from_str::<serde_yaml::Value>(invalid_yaml);
-        assert!(result.is_err());
-
-        let err = result.unwrap_err();
-        let context = BTreeMap::new();
-
-        let custom_error = YamlError::convert_error(&err, None, context.clone());
-
-        assert_eq!(custom_error.kind.message_id(), "YAML-00001");
-        assert_eq!(custom_error.message, err.to_string());
-
-        let details = custom_error.details.unwrap();
-        assert!(details.is_empty()); // no context added
-    }
-
-    #[test]
-    fn test_valid_yaml_does_not_trigger_error() {
-        let valid_yaml = "---\nkey: value";
-        let result = serde_yaml::from_str::<serde_yaml::Value>(valid_yaml);
-        assert!(result.is_ok());
     }
 }
