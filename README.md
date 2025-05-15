@@ -98,6 +98,6 @@ fn serialize_config(config: &Config) -> Result<String, cdumay_error::Error> {
 }
 
 fn deserialize_config(input: &str) -> Result<Config, cdumay_error::Error> {
-    convert_result!(serde_yaml::from_str::<Config>(input), "Failed to deserialize YAML config")
+    convert_result!(serde_yaml::from_str::<Config>(input))
 }
 ```

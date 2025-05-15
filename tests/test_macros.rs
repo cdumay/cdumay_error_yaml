@@ -17,14 +17,15 @@ fn test_convert_result_with_context() {
 }
 
 #[test]
-fn test_convert_result_without_context() {
+fn test_convert_result_without_text() {
     let result = serde_yaml::from_str::<serde_yaml::Value>("invalid: yaml: :");
-    let converted = convert_result!(result, "Test error");
+    let mut context = BTreeMap::new();
+    context.insert("test".to_string(), serde_value::Value::String("value".to_string()));
+    let converted = convert_result!(result, context);
     assert!(converted.is_err());
 
     let err = converted.unwrap_err();
     assert_eq!(err.kind.message_id(), "YAML-00001");
-    assert!(err.message.contains("Test error"));
 }
 
 #[test]
