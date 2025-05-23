@@ -1,4 +1,4 @@
-use cdumay_error::ErrorConverter;
+use cdumay_core::ErrorConverter;
 use cdumay_error_yaml::YamlErrorConverter;
 use serde_value::Value;
 use std::collections::BTreeMap;
@@ -15,10 +15,9 @@ fn test_invalid_yaml_returns_custom_error_with_message() {
 
     let custom_error = YamlErrorConverter::convert_error(&err, Some("Custom YAML parsing failed".to_string()), context.clone());
 
-    assert_eq!(custom_error.kind.message_id(), "YAML-00001");
-    assert_eq!(custom_error.message, "Custom YAML parsing failed");
+    assert_eq!(custom_error.message(), "Custom YAML parsing failed");
 
-    let details = custom_error.details.unwrap();
+    let details = custom_error.details();
     assert!(details.contains_key("file"));
     assert!(details.contains_key("origin"));
 }
@@ -34,11 +33,8 @@ fn test_invalid_yaml_returns_error_with_default_message() {
 
     let custom_error = YamlErrorConverter::convert_error(&err, None, context.clone());
 
-    assert_eq!(custom_error.kind.message_id(), "YAML-00001");
-    assert_eq!(custom_error.message, err.to_string());
-
-    let details = custom_error.details.unwrap();
-    assert!(details.is_empty()); // no context added
+    assert_eq!(custom_error.message(), err.to_string());
+    assert!(custom_error.details().is_empty()); // no context added
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use cdumay_error::ErrorConverter;
+use cdumay_core::ErrorConverter;
 use cdumay_error_yaml::convert_result;
 use std::collections::BTreeMap;
 
@@ -12,8 +12,7 @@ fn test_convert_result_with_context() {
     assert!(converted.is_err());
 
     let err = converted.unwrap_err();
-    assert_eq!(err.kind.message_id(), "YAML-00001");
-    assert!(err.message.contains("Test error"));
+    assert!(err.message().contains("Test error"));
 }
 
 #[test]
@@ -25,7 +24,7 @@ fn test_convert_result_without_text() {
     assert!(converted.is_err());
 
     let err = converted.unwrap_err();
-    assert_eq!(err.kind.message_id(), "YAML-00001");
+    assert!(err.details().contains_key("test"));
 }
 
 #[test]
@@ -33,9 +32,6 @@ fn test_convert_result_minimal() {
     let result = serde_yaml::from_str::<serde_yaml::Value>("invalid: yaml: :");
     let converted = convert_result!(result);
     assert!(converted.is_err());
-
-    let err = converted.unwrap_err();
-    assert_eq!(err.kind.message_id(), "YAML-00001");
 }
 
 #[test]

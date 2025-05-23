@@ -5,7 +5,7 @@
 //!
 //! Here's the documentation for your code in a `README.md` format:
 //! 
-//! A lightweight utility crate that converts YAML serialization and deserialization errors (`serde_yaml::Error`) into structured, typed errors using the [`cdumay_error`](https://!docs.rs/cdumay-error/) framework.
+//! A lightweight utility crate that converts YAML serialization and deserialization errors (`serde_yaml::Error`) into structured, typed errors using the [`cdumay_core`](https://!docs.rs/cdumay_core/) framework.
 //! 
 //! This helps standardize error handling for Rust applications that deal with YAML configuration or data files, while enriching error details with structured context.
 //! 
@@ -14,7 +14,7 @@
 //! - Converts YAML-related errors into a standardized error format
 //! - Provides unique error codes, HTTP status codes, and descriptions
 //! - Supports rich contextual error metadata via `BTreeMap`
-//! - Integrates easily with the `cdumay_error::ErrorConverter` trait
+//! - Integrates easily with the `cdumay_core::ErrorConverter` trait
 //! - Provides a convenient `convert_result!` macro for error conversion
 //! 
 //! ## Usage Example
@@ -23,7 +23,7 @@
 //! 
 //! ```toml
 //! [dependencies]
-//! cdumay_error = "1.0"
+//! cdumay_core = "1.0"
 //! serde = { version = "1.0", features = ["derive"] }
 //! serde-value = "0.7"
 //! serde_yaml = "0.8"
@@ -33,7 +33,7 @@
 //! 
 //! Using the `YamlErrorConverter` directly:
 //! ```rust
-//! use cdumay_error::ErrorConverter;
+//! use cdumay_core::ErrorConverter;
 //! use std::collections::BTreeMap;
 //! use serde::{Deserialize, Serialize};
 //! use cdumay_error_yaml::YamlErrorConverter;
@@ -44,7 +44,7 @@
 //!     debug: bool,
 //! }
 //!
-//! fn serialize_config(config: &Config) -> Result<String, cdumay_error::Error> {
+//! fn serialize_config(config: &Config) -> Result<String, cdumay_core::Error> {
 //!     serde_yaml::to_string(config).map_err(|e| {
 //!         let mut ctx = BTreeMap::new();
 //!         ctx.insert("config_name".into(), serde_value::Value::String(config.name.clone()));
@@ -52,7 +52,7 @@
 //!     })
 //! }
 //!
-//! fn deserialize_config(input: &str) -> Result<Config, cdumay_error::Error> {
+//! fn deserialize_config(input: &str) -> Result<Config, cdumay_core::Error> {
 //!     serde_yaml::from_str::<Config>(input).map_err(|e| {
 //!         let mut ctx = BTreeMap::new();
 //!         ctx.insert("input".into(), serde_value::Value::String(input.to_string()));
@@ -78,7 +78,7 @@
 //! Using the `convert_result!` macro:
 //!
 //! ```rust
-//! use cdumay_error::ErrorConverter;
+//! use cdumay_core::ErrorConverter;
 //! use std::collections::BTreeMap;
 //! use serde::{Deserialize, Serialize};
 //! use cdumay_error_yaml::convert_result;
@@ -89,28 +89,26 @@
 //!     debug: bool,
 //! }
 //!
-//! fn serialize_config(config: &Config) -> Result<String, cdumay_error::Error> {
+//! fn serialize_config(config: &Config) -> Result<String, cdumay_core::Error> {
 //!     let mut ctx = BTreeMap::new();
 //!     ctx.insert("config_name".into(), serde_value::Value::String(config.name.clone()));
 //!     convert_result!(serde_yaml::to_string(config), ctx, "Failed to serialize YAML config")
 //! }
 //!
-//! fn deserialize_config(input: &str) -> Result<Config, cdumay_error::Error> {
+//! fn deserialize_config(input: &str) -> Result<Config, cdumay_core::Error> {
 //!     convert_result!(serde_yaml::from_str::<Config>(input))
 //! }
 //! ```
 #[macro_use]
 mod macros;
 
-use cdumay_error::{AsError, Error, ErrorConverter, define_errors, define_kinds};
+use cdumay_core::{Error, ErrorConverter, define_errors, define_kinds};
 use std::collections::BTreeMap;
 
-/// Define custom error kinds related to YAML operations.
 define_kinds! {
-    YamlData = ("YAML-00001", 400, "Invalid YAML data")
+    YamlData = (400, "Invalid YAML data")
 }
 
-/// Create typed error structs associated with each defined error kind.
 define_errors! {
     DataError = YamlData,
 }
@@ -130,7 +128,7 @@ impl ErrorConverter for YamlErrorConverter {
     ///
     /// # Returns
     /// A typed `Error` with metadata and details included.
-    fn convert(err: &serde_yaml::Error, text: String, context: BTreeMap<String, serde_value::Value>) -> Error {
-        DataError::new().set_message(text).set_details(context).into()
+    fn convert(_: &serde_yaml::Error, text: String, context: BTreeMap<String, serde_value::Value>) -> Error {
+        DataError::new().with_message(text).with_details(context).into()
     }
 }
